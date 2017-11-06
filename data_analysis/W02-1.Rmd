@@ -5,6 +5,7 @@ date: "5 November 2017"
 output: html_document
 ---
 
+#Group: aschupp, santowsa, CoWeber
 
 1: Implement a if-then-else statement which prints "Larger" if the number provided as variable ''n'' is larger than 1 and "Equal or smaller" oterhwise.
 
