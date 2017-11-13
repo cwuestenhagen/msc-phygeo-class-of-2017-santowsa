@@ -1,0 +1,40 @@
+---
+title: "rs-ws-02-2"
+author: "CoWeber, aschupp, santowsa"
+date: "12 November 2017"
+output: html_document
+---
+
+# Loading raster images and lidar image, check projection and project lidar image
+```{r, eval =FALSE}
+source("D:mpg/funktion/raster_funktion.R")
+
+raster=list.files("D:mpg/daten/areal/original/474000_5630000", full.names = TRUE)
+raster
+
+data= list()
+
+data = lapply(raster, function(x){
+  stack(x)
+})
+
+data
+
+lidar = raster("D:mpg/daten/lidar/original/lidar.tif")
+lidar
+
+projection(lidar) <- CRS("+init=epsg:25832")
+```
+
+# Crop raster images to the extend of the lidar data set
+
+```{r, eval=FALSE}
+rast_cr1 <- crop(data[[1]],lidar,"D:mpg/daten/areal/raster1_crop",format= "GTiff", overwrite= TRUE, snap="near")
+rast_cr2 <- crop(data[[2]],lidar,"D:mpg/daten/areal/raster2_crop",format= "GTiff", snap="near")
+rast_cr3 <- crop(data[[3]],lidar,"D:mpg/daten/areal/raster3_crop",format= "GTiff", snap="near")
+rast_cr4 <- crop(data[[4]],lidar,"D:mpg/daten/areal/raster4_crop",format= "GTiff", snap="near")
+rast_cr5 <- crop(data[[5]],lidar,"D:mpg/daten/areal/raster5_crop",format= "GTiff", snap="near")
+rast_cr6 <- crop(data[[6]],lidar,"D:mpg/daten/areal/raster6_crop",format= "GTiff", snap="near")
+rast_cr7 <- crop(data[[7]],lidar,"D:mpg/daten/areal/raster7_crop",format= "GTiff", snap="near")
+rast_cr8 <- crop(data[[8]],lidar,"D:mpg/daten/areal/raster8_crop",format= "GTiff", snap="near")
+```
