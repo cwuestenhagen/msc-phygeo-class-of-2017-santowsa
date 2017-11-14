@@ -1,0 +1,64 @@
+---
+title: "Untitled"
+author: "aschupp, cweber, santowsa"
+date: "12 November 2017"
+output: html_document
+---
+# W03-1
+
+###Bitte "wd" bzw. den Dateipfad entsprechend der Datei hessen_holzeinschlag_1997-2014_clean.csv setzten.
+
+#### 1. Please write an R script which reads the file, "isolates" the tabulated information and writes this information back to a new file called "hessen_holzeinschlag_1997-2014_clean.csv".
+```{r}
+df=read.csv("F:/Master/da-ws-03/W03/hessen_holzeinschlag_1997-2014.csv", skip=4, header=T, sep=";", dec=".")
+df=df[-19,]
+write.table(df,"F:/Master/da-ws-03/W03/hessen_holzeinschlag_1997-2014_clean.csv", dec=",", sep=";")
+```
+#W03-2
+
+```{r}
+df1=read.csv("F:/Master/da-ws-03/W03/hessen_holzeinschlag_1997-2014_clean.csv", header=T, sep=";", dec=",")
+```
+#### 1. Create a simple visualization which gives a quick, temporally non explicit and descriptive statistical overview of the harvest by tree type and as a total over all trees. 
+```{r}
+summary(df1)
+bo=boxplot(df1[,2:7], main="Holzeinschlag 1997-2014",xlab="Baumart", ylab="Einschlagsmenge")
+```
+
+#### 2. Have a look at beech and spruce and write exactly one sentence for each of the tree species which summarizes what you see.
+
+Beech: Smaller variation range and a equeal distribution between the quartiles.
+
+Spruce: Higher variation range with an uneven distribution between the quartiles and a single outlier above the normal data range.
+
+
+#### 3. Create another visualization which - in the same figure panel - shows how each beech harvest over the time span is related to each of the oak, pine, spruce and colored wood harvests in a 2 by 2 grid.
+```{r}
+a=cbind(df1$Buche,df1$Fichte)
+b=cbind(df1$Buche,df1$Eiche)
+c=cbind(df1$Buche,df1$Buntholz)
+d=cbind(df1$Buche,df1$Kiefer)
+e=df1$FWJ
+matplot(e,a, pch=16, main="Buche und Fichte", xlab = "Jahr", ylab = "Einschlagsmenge", xaxt="n")
+  legend("right", c("Buche","Fichte"), pch=16, col=c("black","red"),cex=0.6)
+  axis(1, at=c(1997:2014))
+matplot(e,b, pch = 16, main="Buche und Eiche", xlab = "Jahr", ylab = "Einschlagsmenge", xaxt="n")
+  legend("right", c("Buche","Eiche"), pch=16, col = c("black", "red"), cex = 0.6)
+  axis(1, at=c(1997:2014))
+matplot(e,c, pch = 16, main="Buche und Buntholz", xlab = "Jahr", ylab = "Einschlagsmenge", xaxt="n")
+  legend("right", c("Buche","Buntholz"), pch=16, col = c("black", "red"), cex = 0.6)
+  axis(1, at=c(1997:2014))
+matplot(e,d, pch = 16, main="Buche und Kiefer", xlab = "Jahr", ylab = "Einschlagsmenge", xaxt="n")
+  legend("right", c("Buche","Kiefer"), pch=16, col = c("black", "red"), cex = 0.6)
+  axis(1, at=c(1997:2014))
+```
+
+#### 4. Describe each plot with exactly one sentence.
+
+The differnce between beech and spruce harvest is marginal, the outliner (2007) from spruce and a few higher spruce harvests (2002-2010) are visible.
+
+Oak harvest is far below the beech harvest while similar trends are visible in both harvests.
+
+Since the coloured wood data is NA since 2000 you can't compare this data.
+
+Pine harvest has a continual growth with some episodal declines while beech harvest is consistent with a decline in the years 2006-2009.
