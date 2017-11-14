@@ -1,0 +1,21 @@
+---
+title: "gis-ws-02-1"
+author: "aschupp, cweber, santowsa, schmuecv"
+date: "13 November 2017"
+output: html_document
+---
+
+```{r}
+a <- read.csv("F:/vfst_table.csv", header=T, sep=";")
+print(a)
+```
+# Workflow
+
+look up flow_c.jpeg
+
+# Difficulties 
+
+- Auswählen der Parameter
+- Verknüpung der Parameter
+- Bewertung der Parameter im Bezug auf "Strukturgüte"
+- Unterschiedliche Datenwerte zusammenführen

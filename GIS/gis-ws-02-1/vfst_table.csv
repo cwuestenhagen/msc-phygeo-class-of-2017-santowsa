@@ -1,0 +1,5 @@
+Structural Attribute;Response;Spatial Scale
+topography;raster from LiDAR last return (DGM);1m²
+Canopy cover;raster from LiDAR first returns;1m²
+Canopy hight;raster from LiDAR: first return - last return;1m²
+vertical distribution ratio (VDR);canopy hight / heights of median energy (all returns between last and first return);1m²
