@@ -1,0 +1,7 @@
+Structural Attribute;Response;Plot size
+mean canpoy hight (MeanCH);mean value fisrt returns - last returns per plot;min. 10m²
+SD of mean canopy hight  (SDCH);standard deviation of MeanCH per plot;min. 10m²
+max. tree height (MaxCH);max. of canopy hight per plot;min. 10m²
+lowergroundechos (LGE);proportion of laser echoes reaching 2m above ground ;min. 10m²
+uppergroundechos (UGE);proportion of laser echoes only measured at MaxCH above ground ;min. 10m²
+penetration rate ;LGE / UGE;min. 10m²
