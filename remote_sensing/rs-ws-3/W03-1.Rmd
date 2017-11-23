@@ -1,0 +1,40 @@
+---
+title: "rs-ws-03-1"
+author: "santowsa, CoWeber, aschupp"
+date: "19 November 2017"
+output: html_document
+---
+
+## White areas
+Please identify the reason for the white boarders and sketch a potential solution which will remove the boarders but preserves the general geometry of the aerial images tiles of 2 by 2 km.
+
+1. Identify overlaying raster data and read it in with stack function
+
+```{r, echo=FALSE}
+library(raster)
+library(sp)
+library(rgdal)
+
+r3=stack("F:/rs/aerial_croped/raster3_crop.tif")
+r4=stack("F:/rs/aerial_croped/raster4_crop.tif")
+r5=stack("F:/rs/aerial_croped/raster5_crop.tif")            
+r6=stack("F:/rs/aerial_croped/raster6_crop.tif")
+```
+2. Application of the overlay function, check right projection and save raster as new data for raster 3 and 4 
+
+```{r, echo=FALSE}
+r3_4 <- overlay(r3, r4, fun=min)
+
+projection(r3_4) <- CRS("+init=epsg:25832")
+
+writeRaster(r3_4, "F:/rs/aerial_croped/r3_4_new", format="GTiff")
+```
+3. Application of the overlay function, check right projection and save raster as new data for raster 5 and 6 
+
+```{r,echo=FALSE}
+r5_6 <- overlay(r5, r6, fun=min)
+
+projection(r5_6) <- CRS("+init=epsg:25832")
+
+writeRaster(r5_6, "F:/rs/aerial_croped/r5_6_new", format="GTiff")
+```
