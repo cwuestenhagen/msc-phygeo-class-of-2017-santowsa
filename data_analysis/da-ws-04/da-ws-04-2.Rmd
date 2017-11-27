@@ -1,0 +1,48 @@
+---
+title: "da-ws-04-2"
+author: "CoWeber, aschupp, santowsa"
+date: "26 November 2017"
+output: html_document
+---
+
+```{r, warning=FALSE}
+setwd("D:/mpg/daten/tab")
+source("D:/mpg/skript/da/da-ws-04-2/funk_location_type_separation.R")
+library(tidyr)
+library(stringr)
+library(bindr)
+df <- read.table("AI001_gebiet_flaeche.txt", header = T,
+                 sep = ";", dec = ",", skip = 4, nrows = 8925, 
+                 fill = T)
+
+# Preparations:
+
+names(df)[1:2] <- c("Jahr", "ID")
+head(df)
+
+for (c in colnames(df)[4:7]){
+  df[, c][df[, c] == "."] <- NA
+  df[, c] <- as.numeric(sub(",",".", as.character(df[, c])))
+}
+
+for (c in colnames(df)[4:7]){
+  df[, c][df[, c] == "." |
+            df[,c]=="," |
+            df[,c]=="-" |
+            df[,c]=="_" |
+            df[,c]=="/" ]<- NA
+  df[, c] <- as.numeric(sub(",",".", as.character(df[, c])))
+}
+
+# Use function (loc-fun) for cleaning df:
+
+loc_fun(df)
+
+# Save clean df as RDS:
+
+saveRDS(gebiet_fläche_clean, "gebiet_fläche_clean.rds")
+```
+
+```{r}
+head(gebiet_fläche_clean)
+```
