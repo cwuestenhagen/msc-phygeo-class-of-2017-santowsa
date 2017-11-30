@@ -1,0 +1,65 @@
+---
+title: "rs-ws-04-1"
+author: "santowsa, CoWeber, aschupp"
+date: "30 November 2017"
+output: html_document
+---
+
+The NGRDI was used to create the new and reclassified rasterlayers. 
+
+#Code
+Filter: dissimilarity
+
+window size: 3x3, 9x9, 15x15, 31x31, 45x45
+```{r, eval=F}
+library(sp)
+library(raster)
+library(rgdal)
+library(glcm)
+rasterOptions(maxmemory=1e+08)
+a=raster("C:/master-prog/data/aerial/aerial_croped/NGRDI.tif")
+diss_31=glcm(a,window = c(31,31), statistics = "dissimilarity")
+writeRaster(diss_31, "C:/master-prog/data/aerial/aerial_croped/NGRDI_31", format="GTiff")
+
+diss_3=glcm(a,window = c(3,3), statistics = "dissimilarity")
+writeRaster(diss_3, "C:/master-prog/data/aerial/aerial_croped/NGRDI_3", format="GTiff")
+
+diss_9=glcm(a,window = c(9,9), statistics = "dissimilarity")
+writeRaster(diss_9, "C:/master-prog/data/aerial/aerial_croped/NGRDI_9", format="GTiff")
+
+diss_15=glcm(a,window = c(15,15), statistics = "dissimilarity")
+writeRaster(diss_15, "C:/master-prog/data/aerial/aerial_croped/NGRDI_15", format="GTiff")
+
+diss_45=glcm(a,window = c(45,45), statistics = "dissimilarity")
+writeRaster(diss_45, "C:/master-prog/data/aerial/aerial_croped/NGRDI_45", format="GTiff")
+```
+
+#Dissimilarity
+
+Dissimilarity is a distance-based approach on a "square"-matrix to show distribution between point A in dependence to point B and C. It is commonly used in socio-ecological studies to predict distribution in a space between two species.
+
+#3x3 Raster
+```{r}
+library(sp)
+library(raster)
+library(rgdal)
+plot(raster("C:/master-prog/data/aerial/aerial_croped/NGRDI_3.tif"))
+```
+
+#15x15 Raster
+```{r}
+library(sp)
+library(raster)
+library(rgdal)
+plot(raster("C:/master-prog/data/aerial/aerial_croped/NGRDI_15.tif"))
+```
+
+#45x45 Raster
+```{r}
+library(sp)
+library(raster)
+library(rgdal)
+plot(raster("C:/master-prog/data/aerial/aerial_croped/NGRDI_45.tif"))
+```
+
+Best window size is 15x15 since lower window size (<10) creates to much noise in the raster and bigger than this size (>20) merges to much unknow pixel into one value. 
