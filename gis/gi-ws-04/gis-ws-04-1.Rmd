@@ -1,0 +1,38 @@
+---
+title: "gis-ws-04-1"
+author: "CoWeber, aschupp, santowsa"
+date: "27 November 2017"
+output: html_document
+---
+## Scripting vertical diversity
+
+# canopy cover / penetration rate
+
+1. Software: ArcGis / QGis
+2. Workflow:
+  - las-data in las-dataset (ArcGis)
+  - create first return raster (rast_first) 
+    - choose first return values 
+    - "las-dataset to raster"-tool (interpolation: IDW, cellsize: 10)
+![raster first return](D:\mpg\skript\gis\gis-ws-04-1\ss_first.jpg)
+ 
+  - create all return raster (rast_all) 
+    - choose all return values 
+    - "las-dataset to raster"-tool (interpolation: IDW, cellsize: 10)
+![raster all returns](D:\mpg\skript\gis\gis-ws-04-1\ss_all.jpg)
+ 
+  - calculate "rast_first" / "rast_all" --> "canopy_cover" (QGIS)
+    - following Lim et al. (2003)
+    
+
+```{r, echo=FALSE, message=FALSE}
+library(ggplot2)
+library(sp)
+library(raster)
+library(rgdal)
+```
+```{r}
+plot(raster("D:/mpg/skript/gis/canopy_cover_caldern.tif"), 
+     col= terrain.colors(100), main =  "canopy cover Caldern", 
+     xaxt = "n", yaxt = "n")
+```

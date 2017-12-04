@@ -1,0 +1,24 @@
+loc_fun <- function(x) {
+  x <- separate(x, col= 3, into = c("Place", "Admin_unit", "Admin_misc"), 
+                sep=", ")
+  
+for (i in seq(nrow(x))){
+    if (!is.na(x[i,"Admin_misc"])){
+      x[i,] <- x[i, c(1:3,5,4,6:ncol(x))]
+    }
+  }
+  
+for(r in seq(nrow(x))){
+    if(is.na(x$Admin_unit[r]) &
+       grepl("kreis", tolower(x$Place[r]))){
+      x$Admin_unit[r] <- "Landkreis"
+    }
+  }
+  
+  
+x$Admin_unit [is.na(x$Admin_unit) & nchar(as.character(x$ID) == 2)] <- "Bundesland"
+x$Admin_unit [x$ID == "DG"] <- "Land"
+  
+  
+assign("gebiet_fläche_clean", x, envir = .GlobalEnv)
+}
