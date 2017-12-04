@@ -1,0 +1,73 @@
+---
+title: "da-ws-05-2"
+author: "CoWeber, aschupp, santowsa"
+date: "4 Dezember 2017"
+output: html_document
+---
+
+# Linear modelling  analysis
+## 1. Linear regression and visualization 
+
+###Relationship as a scatter plot:
+```{r}
+setwd("D:/mpg/daten/tab")
+ff <- readRDS("feldfruechte_clean.rds")
+a <- ff[[6]]
+b <- ff[[8]]
+
+reg_ff <- lm(a~b)
+plot(a, b, main = "scatter plot with modeled relationship", 
+     xlab = "(a) winter wheat", ylab = "(b) winter barley")
+abline(reg_ff, col = "red", lwd = 2)
+````
+
+The datasets have a large common range of values, with clear outliers and a linear relationship that lies just above the main dataset.
+
+###Plot of heteroscedasticity and the normal distribution of the residuals
+```{r}
+ss_observ <- sum((reg_ff$model$b - mean(reg_ff$model$b))**2)
+ss_model <- sum((reg_ff$fitted.values - mean(reg_ff$model$b))**2)
+ss_resid <- sum(reg_ff$fitted.values - reg_ff$model$b)
+
+mss_observ <- ss_observ / (length(reg_ff$model$b)-1)
+mss_resid <- ss_resid / (length(reg_ff$model$b)-2) 
+mss_model <- ss_model / 1
+
+f_value <- mss_model / mss_resid
+
+anova(reg_ff)
+summary(reg_ff)
+
+plot(reg_ff, which = 1)
+plot(reg_ff, which = 2)
+```
+
+Heteroscedasticity: equivalent distribution of residuals
+Normal distribution: Approximate normal distribution of residuals
+
+##2. Normal distribution 50samples and 100 samples
+
+```{r}
+pvalues1<- NULL
+pvalues2<-NULL
+
+for (i in (1:100)){
+  set.seed(i)
+  s1 <-sample(nrow(subset(ff,(!is.na(ff[,6]))&
+                            (!is.na(ff[,8])))),50)
+  s2 <-sample(nrow(subset(ff,(!is.na(ff[,6]))&
+                            (!is.na(ff[,8])))),100)
+  lm1 <- lm(a[s1] ~ b[s1])
+  lm2 <- lm(a[s2] ~ b[s2])
+  p1<-shapiro.test(lm1$residuals)$p.value
+  p2<-shapiro.test(lm2$residuals)$p.value
+  pvalues1<-c(p1, pvalues1)
+  pvalues2<-c(p2, pvalues2)
+  n1<-sum(pvalues1<0.05)
+  n2<-sum(pvalues2<0.05)
+  df<-data.frame("with 50"=n1, "with 100"=n2)
+}
+print(df)  
+```
+
+The Shapiro-Wilkinson test verifys the hypothesis that a underlying population of a sample (50 and 100 samples), in this case the residuals of the random samples, is normally distributed. The result shows that in the first case 27 of 50 sample are not normally distributed and in the second case 45 of 100 samples are not normally distributed. 
