@@ -1,0 +1,99 @@
+---
+title: "gi-ws-04-1"
+author: "aschupp, CoWeber, santowsa"
+date: "4 Dezember 2017"
+output: html_document
+---
+
+#gi-ws-04-1
+
+###A proper "for sequence" for selecting the raster window (total raster size) will follow.
+###Also a proper and 'easy' own written function will come after the tutorial held by Jannis tomorrow.
+```{r, eval=FALSE}
+mainDir="F:/gIs/Projekte/pointcloud_processing"
+inDir="/input/alldata/"
+outDir="/output/alldata/"
+Fusion="F:/gIs/FUSION/"
+
+library(sp)
+library(raster)
+library(rgdal)
+
+#creating a overview for the size of the dataframe (raster)
+
+las_files<-list.files(paste0(mainDir,inDir), pattern=".las$", 
+                      full.names=TRUE,recursive = TRUE) 
+
+lapply(las_files, write,paste0(mainDir,inDir,"lidar_files.txt"), append=T)
+
+system(paste0(Fusion, "catalog.exe ",mainDir, inDir, "lidar_files.txt " ,
+              mainDir, outDir, "info_caldern.html"))
+
+#creating the canopycover of the choosen rastersize
+
+system(paste0(Fusion, "clipdata.exe", " /height /dtm:",mainDir, outDir,
+              "caldern_GridSurf.dtm ", mainDir, inDir, "lidar_files.txt ", 
+              mainDir, outDir, "caldern_normalized_point_cloud_LIDAR.las ", 
+              "474000 5630000 479000 5634000"))
+
+system(paste0(Fusion, "clipdata.exe"," /zpercent:95 ",  mainDir, outDir, 
+              "caldern_normalized_point_cloud_LIDAR.las ", mainDir, outDir, 
+              "caldern_normalized_point_cloud_LIDAR_zper_95.las ", 
+              "474000 5630000 479000 5634000")) 
+
+system(paste0(Fusion, "returndensity.exe ",mainDir,outDir, 
+              "point_count_all_point_cloud_LIDAR_zper_95.dtm ", "1 ", 
+              mainDir, outDir, "caldern_normalized_point_cloud_LIDAR_zper_95.las"))
+
+system(paste0(Fusion, "dtm2ascii.exe ",mainDir,outDir, 
+              "point_count_all_point_cloud_LIDAR_zper_95.dtm ", 
+              mainDir,outDir, 
+              "point_count_all_point_cloud_LIDAR_zper_95.asc"))
+
+a=raster(file.path(mainDir,outDir,"point_count_all_point_cloud_LIDAR_zper_95.asc"))
+writeRaster(a, paste0(mainDir,outDir,"caldern_canopy_cov"),format="GTiff")
+
+#creating the 'all return' raster 
+
+system(paste0(Fusion, "clipdata.exe", " /height /dtm:",mainDir, outDir,
+              "caldern_GridSurf.dtm ", mainDir, inDir, "lidar_files.txt ", 
+              mainDir, outDir, "caldern_normalized_point_cloud_LIDAR.las ", 
+              "474000 5630000 479000 5634000"))
+
+system(paste0(Fusion, "returndensity.exe ",mainDir,outDir, 
+              "caldern_normalized_point_cloud_LIDAR.dtm ", "1 ", 
+              mainDir, outDir, "caldern_normalized_point_cloud_LIDAR.las"))
+
+system(paste0(Fusion, "dtm2ascii.exe ",mainDir,outDir, 
+              "caldern_normalized_point_cloud_LIDAR.dtm ", 
+              mainDir,outDir, 
+              "caldern_normalized_point_cloud_LIDAR.asc"))
+
+c=raster(file.path(mainDir,outDir,"caldern_normalized_point_cloud_LIDAR.asc"))
+writeRaster(c, paste0(mainDir,outDir,"all_ret_cal"),format="GTiff")
+
+#dividing canopy cover from all returns
+
+a=raster(paste0(mainDir,outDir,"caldern_canopy_cov.tif"))
+b=raster(paste0(mainDir,outDir, "all_ret_cal.tif"))
+c=a/b
+writeRaster(c, paste0(mainDir,outDir,"cp_div_all_cal"),format="GTiff")
+```
+
+
+```{r,echo=TRUE}
+mainDir="F:/gIs/Projekte/pointcloud_processing"
+inDir="/input/alldata/"
+outDir="/output/alldata/"
+Fusion="F:/gIs/FUSION/"
+
+library(sp)
+library(raster)
+library(rgdal)
+d=raster(paste0(mainDir,outDir, "cp_div_all_cal.tif"))
+plot(d)
+```
+
+As you can see we took somewhere the wrong exit and got stuck with a wrong display of CP/all returns.
+
+As stated above we will search for the error and replace it with the correct data string.
