@@ -1,0 +1,78 @@
+---
+title: "rs-ws-05-1"
+author: "CoWeber, aschupp, santowsa"
+date: "6 Dezember 2017"
+output: html_document
+---
+###Merge Raster data
+```{r, eval=FALSE}
+setwd("D:/mpg/daten/areal/aerial_croped")
+library(sp)
+library(raster)
+library(rgdal)
+library(glcm)
+
+all <- merge(r1, r2, r3, r4, r5, r6)
+projection(all) <- CRS("+init=epsg:25832")
+writeRaster(all, "merge_caldern", format = "GTiff")
+```
+
+```{r}
+library(sp)
+library(raster)
+library(rgdal)
+library(glcm)
+caldern <- raster("D:/mpg/daten/areal/aerial_croped/merge_caldern.tif")
+plot(caldern, main = "Merge all raster")
+```
+
+
+###Create one band rasters
+```{r, eval=FALSE}
+merge <- stack("merge_caldern.tif")
+
+merge_blue <- merge[[3]]
+merge_green <- merge[[2]]
+merge_red <- merge[[1]]
+writeRaster(merge_blue, "merge_cal_blue", format = "GTiff")
+writeRaster(merge_green, "merge_cal_green", format = "GTiff")
+writeRaster(merge_red, "merge_cal_red", format = "GTiff")
+```
+
+```{r}
+blue <- raster("D:/mpg/daten/areal/aerial_croped/merge_cal_blue.tif")
+green <- raster("D:/mpg/daten/areal/aerial_croped/merge_cal_green.tif")
+red <- raster("D:/mpg/daten/areal/aerial_croped/merge_cal_red.tif")
+plot(blue, main = "blue-band")
+plot(green, main = "green-band")
+plot(red, main = "red-band")
+```
+
+###NGRDI Index
+```{r, eval=FALSE}
+green <- brick("merge_cal_green.tif")
+red <- brick("merge_cal_red.tif")
+
+NGRDI <- (green-red)/(green+red)
+writeRaster(NGRDI, "NGRDI_gesamt_caldern", format = "GTiff")
+```
+
+```{r}
+ngr <- raster("D:/mpg/daten/areal/aerial_croped/NGRDI_gesamt_caldern.tif")
+plot(ngr, col= terrain.colors(30), main = "NGRDI-Index")
+```
+
+### NGRDI Index with "mean" and "variation" spatial filter (cell size: 9x9)
+```{r, eval=FALSE}
+NGRDI_cal_mean_9x9 <- glcm(ng, window = c(9, 9), statistics =  "mean")
+writeRaster(NGRDI_cal_mean_9x9, "NGRDI_mean_9x9_caldern", format = "GTiff")
+NGRDI_cal_variance_9x9 <- glcm(ng, window = c(9, 9), statistics =  "variance")
+writeRaster(NGRDI_cal_variance_9x9, "NGRDI_variance_9x9_caldern", format = "GTiff")
+```
+
+```{r}
+mean <- raster("D:/mpg/daten/areal/aerial_croped/NGRDI_mean_9x9_caldern.tif")
+var <- raster("D:/mpg/daten/areal/aerial_croped/NGRDI_variance_9x9_caldern.tif")
+plot(mean, col= terrain.colors(30), main = "NGRDI Filter: mean (9x9)")
+plot(var, col= terrain.colors(30), main = "NGRDI Filter: variance (9x9)")
+```
