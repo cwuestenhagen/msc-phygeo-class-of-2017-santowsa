@@ -1,0 +1,92 @@
+---
+title: "gi-ws-05"
+author: "santowsa, CoWeber, aschupp"
+date: "12 Dezember 2017"
+output: html_document
+---
+### Foliage Height Diversity:
+
+```{r, eval=F}
+mainDir <- "E:/gIs/pc_2_1/" ##my working directory
+inDir <- "/input/"## my input folder
+outDir<- "/output/"##my output folder for temorary products
+results<-"/results_single/"
+merge="/raster_merged/"
+merge_ab="/raster_ab/"
+Fusion<-"E:/gIs/FUSION/"
+library(sp)
+library(raster)
+library(rgdal)
+rasterOptions(maxmemory=1e+08)
+
+sliceLasData<-function(lasList,heights){
+  for (i in lasList){
+    ##get basic info (expl. extent for clipData)
+    system(paste0(Fusion, "catalog.exe ",mainDir, inDir, i," ",
+                  mainDir, outDir,i, ".html"))
+    
+    extent<-read.csv(paste0(mainDir, outDir,i,".csv"))
+    
+    system(paste0(paste0(Fusion, "clipdata.exe"," /class:2 ",
+                         mainDir, inDir, i," ",
+                         mainDir, outDir,i, "_GroundPts.las "),
+                  paste(extent$MinX,extent$MinY,extent$MaxX,extent$MaxY))
+    )
+    system(paste0(Fusion, "gridsurfacecreate.exe ", 
+                  mainDir, outDir, i,"_GridSurf.dtm ",
+                  "1 M M 1 32 0 0 ",mainDir, outDir,i, "_GroundPts.las"))
+    
+    for (j in 1:length(heights)-1){
+      
+      system(paste0(paste0(Fusion, "clipdata.exe"," /zmin:",heights[j], "/zmax:",heights[j+1],
+                           " /height /dtm:",mainDir, outDir,i,"_GridSurf.dtm ",
+                           mainDir, inDir, i," ",##input
+                           mainDir, outDir, i,
+                           heights[j],"_",heights[j+1],"_normalized.las "),
+                    paste(extent$MinX,extent$MinY,extent$MaxX,extent$MaxY)))
+      
+      system(paste0(Fusion, "returndensity.exe ","/ascii ",mainDir,results,i, "_",heights[j],"_",heights[j+1], "density.asc ",
+                    "1 ",   mainDir, outDir, i,
+                    heights[j],"_",heights[j+1],"_normalized.las "))
+      tempo=raster(paste0(mainDir,results,i, "_",heights[j],"_",heights[j+1], "density.asc"))
+      writeRaster(tempo, 
+                  paste0(mainDir,results,i, "_",heights[j],"_",heights[j+1], "density."),format="GTiff")
+      
+      
+    }
+  }
+}
+```
+
+### Vertical Distribution Ratio: 
+
+```{r, eval=FALSE}
+mainDir <- "E:/gIs/pc_2_1" 
+inDir <- "/input/"
+outDir<- "/output/"
+results<-"/vdr/"
+Fusion<-"E:/gIs/FUSION/"
+library(sp)
+library(raster)
+library(rgdal)
+rasterOptions(maxmemory=1e+08)
+
+VDR<-function(las_list, height, cell,col){
+  for (i in las_list){
+    
+    system(paste0(Fusion, "gridmetrics.exe ",mainDir,outDir,i,"_GridSurf.dtm ",height," " ,cell," " ,mainDir, results,i, 
+                  "_vdr.csv ", mainDir,inDir,i))
+    
+    system(paste0(Fusion, "csv2grid.exe ", mainDir, results,i,"_vdr_all_returns_intensity_stats.csv ",col," ", 
+                  mainDir, results, i,"_median.asc"))
+    
+    tempo=raster(paste0(mainDir,results,i, "_median.asc"))
+    projection(tempo) <- CRS("+init=epsg:25832")
+    writeRaster(tempo,paste0(mainDir,results,i, "_median."),format="GTiff" )
+    
+  }
+}
+```
+
+
+since we worked until 3:55 pm on the script some parts are missing others are doubled. Until we need to submit the whole we will work on it and upload asap.
