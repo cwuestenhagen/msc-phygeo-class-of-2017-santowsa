@@ -1,0 +1,84 @@
+---
+title: "recursive_fs_function"
+author: "CoWeber, aschupp, santowsa"
+date: "17 Dezember 2017"
+output: html_document
+---
+
+# Semi-automatic:
+
+```{r, eval=FALSE}
+recursive_fs <- function(data, dep, vars){
+  rec_fs <- lapply(seq(0, length(vars)), function(v){
+    
+    if(v == 0){
+      formula <- paste(dep, " ~ ", paste(vars, collapse=" + "))
+      v = "all"
+    } else {
+      formula <- paste(dep, " ~ ", paste(vars[-v], collapse=" + "))
+      v = vars[v]
+    }
+    
+    lmod <- lm(formula, data = data)
+    results <- data.frame(Variable = v,
+                          Adj_R_sqrd = round(summary(lmod)$adj.r.squared, 4),
+                          AIC = round(AIC(lmod), 4))
+    
+    return(results)
+  })
+  rec_fs <- do.call("rbind", rec_fs)
+  
+  rec_fs$Diff <- rec_fs$AIC - rec_fs$AIC[1]
+  
+  print(rec_fs)
+  
+  exclude <- rec_fs$Variable[which(rec_fs$Adj_R_sqrd == max(rec_fs$Adj_R_sqrd))] # min auf max geändert
+  print(exclude)
+  vars <- vars[-which(vars == exclude)]
+  print(vars)
+  #return(vars)
+}
+```
+
+# Full automatic (in progress):
+```{r, eval=FALSE}
+rfs_funktion <- function(data, dep, vars, vars_2 = NULL){
+  rec_fs <- lapply(seq(length(vars)), function(v){
+    if(is.null(vars_2)){
+      formula <- paste(dep, "~", paste(vars[v], collapse=" + "))
+      
+    } else {
+      formula <- paste(dep, "~", paste(c(vars_2, vars[-v]), collapse=" + "))
+      
+    }
+    lmod <- lm(formula, data = data) 
+    results <- data.frame(Variable = v,
+                          Adj_R_sqrd = round(summary(lmod)$adj.r.squared, 4),
+                          AIC = round(AIC(lmod), 4))
+    return(results)
+  })
+  rec_fs <- do.call("rbind", rec_fs)
+  
+  
+  if(!is.null(vars_2)){
+    formula <- paste(dep, " ~ ", paste(vars_2, collapse = " + "))
+    lmod <- lm(formula, data = data)
+    results_2 <- data.frame(Variable = paste0("all: ", paste(vars_2, collapse = ", ")),
+                            Adj_R_sqrd = round(summary(lmod)$adj.r.squared, 4),
+                            AIC = round(AIC(lmod), 4))
+    
+  } else{
+    results_2 <- data.frame(Variable = paste0("all: ",
+                                              paste(vars_2,
+                                                    collapse = ", ")),
+                            Adj_R_sqrd =  0,
+                            AIC = 1E10)
+  }
+    
+  
+  out_var <- as.character(rec_fs$Variable[which(rec_fs$Adj_R_sqrd == max(rec_fs$Adj_R_sqrd))])
+  max_r_sqrd <- max(rec_fs$Adj_R_sqrd)
+  rec_fs <- rbind(results_2, rec_fs)
+  return(list(out_var, max_r_sqrd, rec_fs))
+}
+```

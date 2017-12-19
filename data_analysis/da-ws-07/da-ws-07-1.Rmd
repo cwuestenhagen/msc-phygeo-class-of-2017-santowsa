@@ -1,0 +1,106 @@
+---
+title: "da-ws-07-1"
+author: "CoWeber, aschupp, santowsa"
+date: "17 Dezember 2017"
+output: html_document
+---
+
+### Recursive feature selection
+
+In the following you can look up the "semi-automatic" variant of our recursive feature selection. We also tried to implement a full automatic variant for this selection, but until now the automatic variant does not work. 
+
+```{r}
+setwd("D:/mpg/daten/tab")
+source("D:/mpg/skript/da/da-ws-07-1/recursive_fs_funk_1.R")
+tab <- readRDS("feldfruchte_clean_3.RDS")
+ty = colnames(tab[6])
+tx = colnames(tab[7:15])
+
+rfs_1 <- recursive_fs(data = tab, dep = ty, var = tx)
+```
+
+At the first implementation of the rfs-function the adj. r. sqrd. from all variables is 0.7049 and we can increase the adj. r. sqrd. if we exclude the "beet" values.
+
+```{r}
+rfs_2 <- recursive_fs(data= tab, dep = ty, var = rfs_1)
+```
+
+At the second implementation the adj. r. sqrd. increases from 0.7049 to 0.7091 through the exclusion of the beet values. We can increase the adj. r. sqrd. ones more if we exclude the "summer barley" values.
+
+```{r}
+rfs_3 <- recursive_fs(data = tab, dep = ty, var = rfs_2)
+```
+
+At the third implementation the adj. r. sqrd. increases from 0.7091 to 0.7112 through the exlcuion of "beet" and "summer barley" values. At this point we can't increase the adj. r. sqrd. more, because we can't exclude the "all" values. We reached the maximum quality with an adj. r. sqrd. of 0.7112
+
+# Full automatic recursive feature selection (in progress)
+
+#Function (in progress): 
+```{r, eval=FALSE}
+rfs_funktion <- function(data, dep, vars, vars_2 = NULL){
+  rec_fs <- lapply(seq(length(vars)), function(v){
+    if(is.null(vars_2)){
+      formula <- paste(dep, "~", paste(vars[v], collapse=" + "))
+      
+    } else {
+      formula <- paste(dep, "~", paste(c(vars_2, vars[-v]), collapse=" + "))
+      
+    }
+    lmod <- lm(formula, data = data) 
+    results <- data.frame(Variable = v,
+                          Adj_R_sqrd = round(summary(lmod)$adj.r.squared, 4),
+                          AIC = round(AIC(lmod), 4))
+    return(results)
+  })
+  rec_fs <- do.call("rbind", rec_fs)
+  
+  
+  if(!is.null(vars_2)){
+    formula <- paste(dep, " ~ ", paste(vars_2, collapse = " + "))
+    lmod <- lm(formula, data = data)
+    results_2 <- data.frame(Variable = paste0("all: ", paste(vars_2, collapse = ", ")),
+                            Adj_R_sqrd = round(summary(lmod)$adj.r.squared, 4),
+                            AIC = round(AIC(lmod), 4))
+    
+  } else{
+    results_2 <- data.frame(Variable = paste0("all: ",
+                                              paste(vars_2,
+                                                    collapse = ", ")),
+                            Adj_R_sqrd =  0,
+                            AIC = 1E10)
+  }
+    
+  
+  out_var <- as.character(rec_fs$Variable[which(rec_fs$Adj_R_sqrd == max(rec_fs$Adj_R_sqrd))])
+  max_r_sqrd <- max(rec_fs$Adj_R_sqrd)
+  rec_fs <- rbind(results_2, rec_fs)
+  return(list(out_var, max_r_sqrd, rec_fs))
+}
+```
+
+# Execution of full automatic rfs-function (in progress):
+
+```{r, eval=FALSE}
+vars <- names(tab[6:ncol(tab)])
+var_ausw <- NULL
+run <- TRUE
+
+while(run == TRUE){
+  rfs <- rfs_funktion(data = tab,
+                      dep = "y",
+                      vars = vars,
+                      vars_2 = var_ausw)
+  vars <- vars[-which(vars == rfs[[1]])]
+  var_ausw <- rbind(var_ausw, rfs[[1]])
+  
+  if(rfs[[2]] < max(rfs[[3]]$Adj_r_sqrd)){
+    run <- FALSE
+  }
+  
+}
+```
+
+After we get some other errors and warning massages, we have now to deal with the following error and will keep working on it:
+
+ Error in terms.formula(formula, data = data) : 
+  ungültige Modellformel in ExtractVars 
