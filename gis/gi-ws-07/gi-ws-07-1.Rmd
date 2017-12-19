@@ -1,0 +1,163 @@
+---
+title: "gi-ws-07-1"
+author: "santowsa, CoWeber, aschupp"
+date: "18 Dezember 2017"
+output: html_document
+---
+
+### Diversity indices
+
+#FHD
+
+```{r, eval=FALSE}
+mainDir <- "E:/gIs/pc_2_1"
+inDir <- "/las_fur_di/"
+outDir<- "/tmp_di/"
+results<-"/res_di/"
+merge_pic="/res_di/merged/"
+merge_ab="/res_di/merged_res/"
+Fusion<-"E:/gIs/FUSION/"
+library(sp)
+library(raster)
+library(rgdal)
+rasterOptions(maxmemory=1e+08)
+
+################################################################################
+#Funtkion missing extents (Zugriff auf min werte in csv). Um sicher zu stellen, dass min-Werte für x und y eingesetzt werden:
+
+missingExtents<-function(catalogTable, Name){
+  
+  for (i in 3:nrow(catalogTable)){
+    
+    findrows <- which(catalogTable$MinX ==0|catalogTable$MinY==0|
+                        catalogTable$MaxX==0|catalogTable$MaxY==0)
+    
+    for (j in findrows){
+      coor<-substr(catalogTable[j,1],nchar(as.character(catalogTable[j,1]))-10, nchar(as.character(catalogTable[j,1])))
+      
+      xmin<-paste0(substr(coor, 1,3), "000")
+      
+      ymin<-paste0(substr(coor, 4,7), "000")
+      
+      catalogTable[j,]$MinX=as.numeric(xmin)
+      
+      catalogTable[j,]$MinY=as.numeric(ymin)
+    }}
+  write.csv(catalogTable,paste0(mainDir, outDir,Name,".csv"))
+}
+###########################################################################
+
+sliceLasData<-function(lasList,heights,cellsize){
+  for (i in lasList){
+    system(paste0(Fusion, "catalog.exe ",mainDir, inDir, i," ",
+                  mainDir, outDir,i, ".html"))
+    #Erstellt .html Datei um lesen zu können wo min/max ist und gleichzeitig .csv (da catalog.exe in csv      mitspeichert)
+    extent<-read.csv(paste0(mainDir, outDir,i,".csv"))
+    if(extent$MinX==0){
+      missingExtents(catalogTable=extent, Name=i)
+      extent<-read.csv(paste0(mainDir, outDir,i,".csv"))
+    }
+    #If-Bedingung um zu testen ob min/max Werte richtig übernommen worden sind (ob sie überhaupt im           Datensatz vorliegen.)
+    system(paste0(paste0(Fusion, "clipdata.exe"," /class:2 ",
+                         mainDir, inDir, i," ",
+                         mainDir, outDir,i, "_GroundPts.las "),
+                  paste(extent$MinX,extent$MinY,extent$MaxX,extent$MaxY))
+    )
+    system(paste0(Fusion, "gridsurfacecreate.exe ", 
+                  mainDir, outDir, i,"_GridSurf.dtm ",
+                  "1 M M 1 32 0 0 ",mainDir, outDir,i, "_GroundPts.las"))
+    #Erstellt ein 'DGM' im .las Format.
+    
+    for (j in 1:length(heights)-1){
+      
+      system(paste0(paste0(Fusion, "clipdata.exe"," /zmin:",heights[j], "/zmax:",heights[j+1],
+                           " /height /dtm:",mainDir, outDir,i,"_GridSurf.dtm ",
+                           mainDir, inDir, i," ",##input
+                           mainDir, outDir, i,
+                           heights[j],"_",heights[j+1],"_normalized.las "),
+                    paste(extent$MinX,extent$MinY,extent$MaxX,extent$MaxY)))
+      #Erstellt zwischen meter x und y ein density modell.
+      system(paste0(Fusion, "returndensity.exe ","/ascii ",mainDir,results,i,
+                    "_",heights[j],"_",heights[j+1], "density.asc ",
+                    cellsize, " ",   mainDir, outDir, i,
+                    heights[j],"_",heights[j+1],"_normalized.las "))
+      #nach dem erstellen der .asci Datei direkt umwandeln in 'einfacher einzulensendes .tif format.
+      tempo=raster(paste0(mainDir,results,i, "_",heights[j],"_",heights[j+1], "density.asc"))
+      writeRaster(tempo, 
+                  paste0(mainDir,results,i, "_",heights[j],"_",heights[j+1], "density."),format="GTiff")
+      
+      
+    }
+  }
+  #Einzugeben sind eine Liste mit n-las-Dateien, deren Höhenintervalle und eine 'Cellsize' für die
+  #Densitiy erstellung (besser gröber, da es ebenfalls wichtig sein kann Matrixfehler zu verringern (nan
+  #Werte))
+}
+#######################################################################################
+#Dateneingabe
+las_names<-list.files(paste0(mainDir,inDir), pattern=".las$", full.names=F,recursive = TRUE)
+
+zValues=c(0,2,5,10,15,25,30,50) 
+#####################################################################################
+#AUSFÜHRUNG
+sliceLasData(lasList=las_names,heights=zValues,cellsize=30)
+```
+
+Im Anschluss werden die passenden Höhen .tif's zusammengeführt (merge) und durch die Gesamthöhe geteilt.
+Danach kann man für die jeweilige Schicht, den FHD-Index berechnen. Darauf hin werden alle "Einzelschichten" aufsummiert und in Betrag gesetzt (*-1).
+
+
+![FHDI](E:\gIs\pc_2_1\FHD_qgis.jpeg)
+
+![FHDI-Example](E:\gIs\pc_2_1\example_fhd.jpeg)
+
+
+
+# VDR
+
+```{r, eval=FALSE}
+mainDir <- "E:/gIs/pc_2_1" 
+inDir <- "/input/"
+outDir<- "/output/"
+results<-"/vdr/"
+Fusion<-"E:/gIs/FUSION/"
+library(sp)
+library(raster)
+library(rgdal)
+rasterOptions(maxmemory=1e+08)
+####################################################################
+#VDR-Funktion (1. gridmetrics, 2. median durch csv2grid, 3. Ausgabe mean raster)
+VDR<-function(las_list, height, cell,col){
+  for (i in las_list){
+    
+    system(paste0(Fusion, "gridmetrics.exe ",mainDir,outDir,i,"_GridSurf.dtm ",height," " ,cell," " ,mainDir, results,i, 
+                  "_vdr.csv ", mainDir,inDir,i))
+    
+    system(paste0(Fusion, "csv2grid.exe ", mainDir, results,i,"_vdr_all_returns_intensity_stats.csv ",col," ", 
+                  mainDir, results, i,"_median.asc"))
+    
+    tempo=raster(paste0(mainDir,results,i, "_median.asc"))
+    projection(tempo) <- CRS("+init=epsg:25832")
+    writeRaster(tempo,paste0(mainDir,results,i, "_median."),format="GTiff" )
+    
+  }
+}
+#########################
+#Eingabe:
+las_list<-list.files(paste0(mainDir,inDir), pattern=".las$", full.names=F,recursive = TRUE)
+
+VDR(las_list, height=0,cell=30,col=31)
+```
+
+Im Anschluss werden die Medianhöhen .tif's zusammengeführt (merge). 
+Benötigt werden zu Berechnung des VDR: 
+1. Canopy Heigth (CH) --> DSM-DGM
+2. Medianwert der Returnenergie (Home) 
+
+VDR = (CH-Home)/CH
+
+
+![VDR](E:\gIs\pc_2_1\vdr_qgis.jpeg)
+
+
+![VDR-Example](E:\gIs\pc_2_1\vrdr_example.jpeg)
