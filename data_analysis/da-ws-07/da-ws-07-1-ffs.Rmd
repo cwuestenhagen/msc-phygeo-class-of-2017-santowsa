@@ -1,0 +1,96 @@
+---
+title: "da-ws-07-1-ffs"
+author: "CoWeber, aschupp, santowsa"
+date: "5 Januar 2018"
+output: html_document
+---
+
+# Forward feature selection 
+##Wheat vs. everything else
+
+## 1. Function for forward feature selection
+
+```{r}
+ffs_funktion <- function(data, dep, vars, selected_vars = NULL){
+  
+  fwd_fs <- lapply(seq(length(vars)), function(v){
+    if(is.null(selected_vars)){
+      formula <- paste(dep, " ~ ", paste(vars[v], collapse = " + "))
+    } else {
+      formula <- paste(dep, " ~ ", paste(c(selected_vars, vars[v]), collapse= " + "))
+    }
+    
+    lmod <- lm(formula, data=data)
+    results <- data.frame(variable = vars[v],
+                          Adj_R_sqrd = round(summary(lmod)$adj.r.squared, 4),
+                          AIC = round(AIC(lmod), 4))
+    return(results)
+  })
+  fwd_fs <- do.call("rbind", fwd_fs)
+  
+  if(!is.null(selected_vars)){
+    formula <- paste(dep, " ~ ", paste(selected_vars, collapse = " + "))
+    lmod <- lm(formula, data=data)
+    results_selected <- data.frame(variable = paste0("all: ",
+                                                     paste(selected_vars, collapse = ", ")),
+                                   Adj_R_sqrd = round(summary(lmod)$adj.r.squared, 4),
+                                   AIC = round(AIC(lmod), 4))
+  } else {
+    results_selected <- data.frame(variable = paste0("all: ",
+                                                     paste(selected_vars,
+                                                           collapse=", ")),
+                                   Adj_R_sqrd = 0,
+                                   AIC = 1E10)
+  }
+  
+  best_var <- as.character(fwd_fs$variable[which(fwd_fs$Adj_R_sqrd == max(fwd_fs$Adj_R_sqrd))])
+  max_adj_r_sqrd <- max(fwd_fs$Adj_R_sqrd)
+  fwd_fs <- rbind(results_selected, fwd_fs)
+  return(list(best_var, max_adj_r_sqrd, fwd_fs))
+}
+```
+
+## 2. Apply function for forward feature selection
+
+```{r, eval=FALSE}
+setwd("D:/mpg/skript/da/da-ws-07-1")
+source("ffs_funktion.R")
+
+tab <- readRDS("D:/mpg/daten/tab/feldfruechte_clean.RDS")
+
+tab_numeric <- lapply(tab[,-c(1:5)],
+                      function(fn){
+                        fn<- sub(",",".",fn,fixed = T)
+                        as.numeric(fn)
+                      })
+
+data <- data.frame(tab_numeric)
+dep <- names(data[1])
+vars <- names(data[2:10])
+selected_vars <- NULL
+
+while((ffs_funktion(data = data, dep = dep, vars = vars,
+                    selected_vars = selected_vars)[[2]]) 
+      >= max(ffs_funktion(data = data, dep = dep, vars = vars,
+                          selected_vars = selected_vars)[[3]]$Adj_R_sqrd)){
+  
+  result <- ffs_funktion(data = data, dep = dep, vars = vars,
+                         selected_vars = selected_vars)
+  
+  vars <- vars[-which(vars == result[[1]])]
+}
+
+print(result)
+```
+
+
+[[1]]
+ "silage.maize"
+
+[[2]]
+ 0.0734
+
+[[3]]
+      variable Adj_R_sqrd          AIC
+1        all:      0.0000 1.000000e+10
+2 silage.maize     0.0734 5.315051e+04
