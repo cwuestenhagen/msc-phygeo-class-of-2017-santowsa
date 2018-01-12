@@ -1,0 +1,45 @@
+otbcli_TrainImagesClassifier -io.il "C:\Users\Admin\Desktop\training_cal\merge_caldern.tif" -io.vd "C:\Users\Admin\Desktop\training_cal\merge_cal_shp.shp"  -sample.mv 100 -sample.mt 100 -sample.vtr 0.5 -sample.vfn LN_new -classifier rf -io.out "C:\Users\Admin\Desktop\training_cal\model_11.txt" -io.confmatout "C:\Users\Admin\Desktop\training_cal\matrix_11.xml"
+
+
+otbcli_ImageClassifier -in "C:/Users/Admin/Desktop/training_cal/merge_caldern.tif" -model C:/Users/Admin/Desktop/training_cal/model_11.txt -ram 128 -out "C:\Users\Admin\Desktop\training_cal\classified_test.tif"
+
+
+TODO!
+
+try to use more than one layer (Indices or anything in that matter)
+
+MORE THAN ONE LAYER TEST:
+
+
+otbcli_TrainImagesClassifier -io.il "D:\mpg\daten\areal\aerial_croped\caldern_ges\raster_rf.tif" -io.vd "D:\mpg\daten\ln\merge_cal_shp.shp"  -sample.mv 100 -sample.mt 100 -sample.vtr 0.5 -sample.vfn LN_new -classifier rf -io.out "D:\mpg\daten\ln\model_1.txt" -io.confmatout "D:\mpg\daten\ln\matrix_1.xml"
+
+
+otbcli_ImageClassifier -in "D:\mpg\daten\areal\aerial_croped\caldern_ges\raster_rf.tif" -model D:/mpg/daten/ln/model_1.txt -ram 128 -out "D:\mpg\daten\ln\classified_rf_caldern.tif"
+
+
+ERROR MESSAGE: 
+
+C:\>otbcli_TrainImagesClassifier -io.il "D:\mpg\daten\areal\aerial_croped\calder
+n_ges\raster_rf.tif" -io.vd "D:\mpg\daten\ln\merge_cal_shp.shp"  -sample.mv 100
+-sample.mt 100 -sample.vtr 0.5 -sample.vfn LN_new -classifier rf -io.out "D:\mpg
+\daten\ln\model_1.txt" -io.confmatout "D:\mpg\daten\ln\matrix_1.xml"
+
+2018 Jan 05 17:22:28  :  Application.logger  (DEBUG) Entering DoExecute
+2018 Jan 05 17:22:29  :  Application.logger  (INFO) Elevation management: settin
+g default height above ellipsoid to 0 meters
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Number of training samples:
+3853
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of training set: 3853
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of validation set: 3779
+
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of labeled training set
+: 3853
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of labeled validation s
+et: 3779
+OpenCV Error: Bad argument (1827-th value of 3-th (ordered) variable (=-1.#INF)
+is too large) in CvDTreeTrainData::set_data, file C:\OSGeo4W64\usr\src\osgeo4w\o
+pencv\opencv-2.4.11\modules\ml\src\tree.cpp, line 551
+2018 Jan 05 17:31:33  :  Application.logger  (FATAL) The following error occurre
+d during application execution : C:\OSGeo4W64\usr\src\osgeo4w\opencv\opencv-2.4.
+11\modules\ml\src\tree.cpp:551: error: (-5) 1827-th value of 3-th (ordered) vari
+able (=-1.#INF) is too large in function CvDTreeTrainData::set_data

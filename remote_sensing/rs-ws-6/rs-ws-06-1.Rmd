@@ -1,0 +1,84 @@
+---
+title: "rs-ws-06-1"
+author: "CoWeber, aschupp, santowsa"
+date: "5 Januar 2018"
+output: html_document
+---
+
+# Land-cover classification [random forest]
+## Under application of R, QGis and OTB
+
+### 1. Create a raster stack of RGB and calculated filters as the basis of the random forest classification 
+
+```{r, eval =FALSE}
+library(raster)
+setwd("D:/mpg/daten/areal/aerial_croped/caldern_ges")
+
+r1 <- stack("merge_caldern.tif")
+r2 <- raster("NGRDI_mean_9x9_caldern.tif")
+r3 <- raster("NGRDI_variance_9x9_caldern.tif")
+
+raster_rf <- stack(r1, r2, r3)
+projection(raster_rf) <- CRS("+init=epsg:25832")
+#summary(raster_rf)
+writeRaster(raster_rf, "raster_rf", format = "GTiff")
+```
+
+### 2. Implementation of land use classification using QGIS and OSGeo4W-Shell
+
+2.1 Train Image Classifier [OTB]:
+Using only the Caldern RGB and the revised shp.-file
+```{r, eval=FALSE}
+otbcli_TrainImagesClassifier -io.il "C:\Users\Admin\Desktop\training_cal\merge_caldern.tif" -io.vd "C:\Users\Admin\Desktop\training_cal\merge_cal_shp.shp"  
+-sample.mv 100 -sample.mt 100 -sample.vtr 0.5 -sample.vfn LN_new -classifier rf -io.out "C:\Users\Admin\Desktop\training_cal\model_11.txt" -io.confmatout "C:\Users\Admin\Desktop\training_cal\matrix_11.xml"
+```
+
+We also test the training with a new raster created in 1. and get the following error:
+
+```{r, eval=FALSE}
+C:\>otbcli_TrainImagesClassifier -io.il "D:\mpg\daten\areal\aerial_croped\calder
+n_ges\raster_rf.tif" -io.vd "D:\mpg\daten\ln\merge_cal_shp.shp"  -sample.mv 100
+-sample.mt 100 -sample.vtr 0.5 -sample.vfn LN_new -classifier rf -io.out "D:\mpg
+\daten\ln\model_1.txt" -io.confmatout "D:\mpg\daten\ln\matrix_1.xml"
+
+2018 Jan 05 17:22:28  :  Application.logger  (DEBUG) Entering DoExecute
+2018 Jan 05 17:22:29  :  Application.logger  (INFO) Elevation management: settin
+g default height above ellipsoid to 0 meters
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Number of training samples:
+3853
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of training set: 3853
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of validation set: 3779
+
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of labeled training set
+: 3853
+2018 Jan 05 17:31:33  :  Application.logger  (INFO) Size of labeled validation s
+et: 3779
+OpenCV Error: Bad argument (1827-th value of 3-th (ordered) variable (=-1.#INF)
+is too large) in CvDTreeTrainData::set_data, file C:\OSGeo4W64\usr\src\osgeo4w\o
+pencv\opencv-2.4.11\modules\ml\src\tree.cpp, line 551
+2018 Jan 05 17:31:33  :  Application.logger  (FATAL) The following error occurre
+d during application execution : C:\OSGeo4W64\usr\src\osgeo4w\opencv\opencv-2.4.
+11\modules\ml\src\tree.cpp:551: error: (-5) 1827-th value of 3-th (ordered) vari
+able (=-1.#INF) is too large in function CvDTreeTrainData::set_data
+```
+
+
+2.2 Image Classifier [OTB]:
+
+```{r, eval=FALSE}
+otbcli_ImageClassifier -in "C:/Users/Admin/Desktop/training_cal/merge_caldern.tif" -model C:/Users/Admin/Desktop/training_cal/model_11.txt -ram 128 -out "C:\Users\Admin\Desktop\training_cal\classified_test.tif"
+```
+
+
+### 3. Land-cover classification of caldern univerity forest and environs
+
+
+```{r, echo=FALSE} 
+library(raster)
+ras <- raster("D:/mpg/daten/areal/aerial_croped/caldern_ges/rf_class_1.tif")
+plot(ras, col= terrain.colors(50), main = "Land-cover classification")
+```
+
+Relating to the classification results the differentiation between fields and meadows is sub-optimal. Also the classes of water, forest and meadows are overlap each other in different regions. 
+
+According to our impression we think it's necessary to increase the baseline dataset with more informations, like different filters. The training areas should be fine in the meantime. 
