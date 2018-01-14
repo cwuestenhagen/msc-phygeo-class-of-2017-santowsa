@@ -1,0 +1,61 @@
+---
+title: "da-ws-08-1"
+author: "CoWeber, aschupp, santowsa"
+date: "12 Januar 2018"
+output: html_document
+---
+
+## Model tuning
+
+Comments in the script for easier understanding. The procedure of scripting primarily the basic steps and then construct the inner and outer loop has proven itself:
+
+```{r}
+setwd("D:/mpg/daten/tab")
+library(mgcv)
+holz <- read.csv("hessen_holzeinschlag_1997-2014_clean.csv", header = T, sep=";")
+
+####### total loop:
+
+gamt_funk<-lapply(seq(3,13), function(k){ #start outer loop: knots 3:13
+  x <- lapply(seq(100), function(i){ #stinner rt loop: cv 100x
+    set.seed(i)
+    smpl <-sample(nrow(holz), 0.8*nrow(holz))
+    train <- holz[smpl,]
+    test <- holz[-smpl,]
+    mod <- gam(Buche ~ s(Eiche, k=k, fx=TRUE), data=train) #calculate gam-modell with train-data
+    predic <- as.numeric(predict(mod, newdata = test)) #transmission to test-data
+    obsv <- test$Buche #obsv-value for RMSE
+    RMSE <- sqrt(mean((predic-obsv)**2))#calculation RMSE
+    r_sqr <- summary(mod)$r.sq #calculation r²
+    return(c(RMSE, r_sqr))
+  })#end inner loop
+  
+  RMSE_1 <- as.numeric(lapply(x, function(C) C[[1]])) #RMSE from inner loop (x) into own list
+  RMSE_mean <- mean(RMSE_1) #calculate mean-value from 100 RMSE-values
+  sd_rmse <- sd(RMSE_1) #standart diviation from 100 RMSE
+  r_sqr_1 <- as.numeric(lapply(x, function(l) l[[2]])) #r²-RMSE from inner loop (x) into own list
+  mean_r_sqr <- mean(r_sqr_1) #calculate mean-value from 100 r²
+  return(c(RMSE_mean, sd_rmse, mean_r_sqr)) #return mean RSME, SD-RMSE, mean-r² from gamt 
+})#Ende Äußere Schleife, Ausgabe gamt mit 11xMittel-RSME, STABW-RSME, Mittel-r²
+
+#### Extension of gamt_funk results to table (dataframe) with knots-number and header:
+gamt1 = data.frame(matrix(unlist(gamt_funk), nrow= length(gamt_funk), byrow = T))
+gamt1$knots <- c(3:13)
+names(gamt1) <- c("RMSE_mean", "RMSE_sd", "adj_r_sqr", "knots")
+# Normelize values:
+gamt1$sd_RMSE_norm <- gamt1$RMSE_sd / max(gamt1$RMSE_mean)
+gamt1$mean_RMSE_norm <- gamt1$RMSE_mean / max(gamt1$RMSE_mean)
+gamt1$sd_plus <- gamt1$mean_RMSE_norm+gamt1$sd_RMSE_norm
+gamt1$sd_minus <- gamt1$mean_RMSE_norm-gamt1$sd_RMSE_norm
+gamt1
+
+#### Plot results:
+
+plot(gamt1$knots, gamt1$mean_RMSE_norm, type="l", ylim=c(0, 1.5), col = 153, ylab = "RMSE, SD-RMSE, adj.R.sqr", xlab="knots")
+lines(gamt1$knots, gamt1$sd_plus, col = 36, lty = 4)
+lines(gamt1$knots, gamt1$sd_minus, col = 36, lty = 4)
+lines(gamt1$knots, gamt1$adj_r_sqr, col = 258)
+
+#legend(legend=c("SD-RMSE", "adj.R.sqr", "RMSE" ), col=c(258, 36, 153), lty= c(3,1,1), cex=0.8)
+```
+
