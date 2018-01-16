@@ -1,0 +1,196 @@
+---
+title: "gis-ws-08-1"
+author: "santowsa, CoWeber, aschupp"
+date: "16 Januar 2018"
+output: html_document
+---
+
+# Horizontal Diversity 
+
+```{r, echo=T, eval=FALSE}
+mainDir <- "E:/gIs/horizont/" 
+inDir <- "input/"
+outDir<- "output/"
+results<-"hor_class/"
+Fusion<-"E:/gIs/FUSION/"
+library(sp)
+library(raster)
+library(rgdal)
+rasterOptions(maxmemory=1e+08)
+source(paste0(mainDir,"function_horizon.R"))
+
+################################################################################
+
+lasfiles<-list.files(paste0(mainDir,inDir),pattern=".las$", full.names=FALSE)
+#einfügen #height und #cellsize und #col 
+#bei uns dann height=0, cellsize=1 und col=38 bzw col=6 beio dgm, etc bla bla 
+statistics(lasList = lasfiles)
+DSM(lasList = lasfiles)
+DGM(lasList = lasfiles)
+CHM(lasList = lasfiles)
+GAP(lasList = lasfiles)
+SLP(lasList = lasfiles)
+```
+
+## Results for horizontal diversity calculation
+
+###1. Variance of Canopy height model (CHM_var 9x9m) for height diversity
+Variance of CHM is used to determine the jump between differen height levels in an area of 9x9m:
+```{r, echo=FALSE}
+mainDir <- "E:/gIs/horizont/" 
+inDir <- "input/"
+outDir<- "output/"
+results<-"hor_class/"
+library(sp)
+library(raster)
+ras <- raster(paste0(mainDir, results, "U4775632.las_CH_var.tif"))
+plot(ras, col= grey.colors(25), main = "CHM-variance 9x9")
+```
+
+
+###2. Results for GAP's (9x9m) and suddenly clear vertical height diversity
+GAP_mean is created for a next step (see explanations) and GAP_var visualizes the jump in height in the 10th percentile from the CHM.
+```{r, echo=FALSE}
+mainDir <- "E:/gIs/horizont/" 
+inDir <- "input/"
+outDir<- "output/"
+results<-"hor_class/"
+library(sp)
+library(raster)
+ras1 <- raster(paste0(mainDir, results, "U4775632.las_GAP_mean.tif"))
+plot(ras1, col= grey.colors(25), main = "GAP-mean 9x9")
+ras2=raster(paste0(mainDir, results, "U4775632.las_GAP_var.tif"))
+plot(ras2, col= grey.colors(25), main = "GAP-variance 9x9")
+```
+
+
+###3. Results for SLP (slope, 25x25m) of CH
+the slope (high values) show like GAP_var an indication for gaps and can be used for more calculations (see Explanations)
+```{r, echo=FALSE}
+mainDir <- "E:/gIs/horizont/" 
+inDir <- "input/"
+outDir<- "output/"
+results<-"hor_class/"
+library(sp)
+library(raster)
+ras3 <- raster(paste0(mainDir, results, "U4775632.las_SlP.tif"))
+plot(ras3, col= terrain.colors(25), main = "Slope 25x25")
+```
+
+
+##Explanations
+
+The 10th percentile is choosen because a jump in this percentile could predict the line between cleared areas and "real" forest.
+
+Next step could be to compare the difference between the GAP-rasters and the SLP to predict "real" gaps. If you compare the shaped forms from the SLP-raster with CH_mean areas which show the same height (-> no big CH_var value) you got a gap.
+
+The oter thing we noticed is SLP shows circular objectives in the forest where neither a high var in the 10th percentile is visible nor a gap is possible in any way. Those slope jumps are the transition between beech and spruce stocks.
+
+
+## Source function code:
+
+```{r, eval=FALSE}
+missingExtents<-function(catalogTable, Name){
+  
+  for (i in 3:nrow(catalogTable)){
+    
+    findrows <- which(catalogTable$MinX ==0|catalogTable$MinY==0|
+                        catalogTable$MaxX==0|catalogTable$MaxY==0)
+    
+    for (j in findrows){
+      coor<-substr(catalogTable[j,1],nchar(as.character(catalogTable[j,1]))-10, nchar(as.character(catalogTable[j,1])))
+      
+      xmin<-paste0(substr(coor, 1,3), "000")
+      
+      ymin<-paste0(substr(coor, 4,7), "000")
+      
+      catalogTable[j,]$MinX=as.numeric(xmin)
+      
+      catalogTable[j,]$MinY=as.numeric(ymin)
+    }}
+  write.csv(catalogTable,paste0(mainDir, outDir,Name,".csv"))
+}
+###########################################################################
+
+statistics<-function(lasList){
+  for (i in lasList){
+    system(paste0(Fusion, "catalog.exe ",mainDir, inDir, i," ",
+                  mainDir, outDir,i, ".html"))
+    extent<-read.csv(paste0(mainDir, outDir,i,".csv"))
+    if(extent$MinX==0){
+      missingExtents(catalogTable=extent, Name=i)
+      extent<-read.csv(paste0(mainDir, outDir,i,".csv"))
+    }
+    system(paste0(paste0(Fusion, "clipdata.exe"," /class:2 ",
+                         mainDir, inDir, i," ",
+                         mainDir, outDir,i, "_GroundPts.las "),
+                  paste(extent$MinX,extent$MinY,extent$MaxX,extent$MaxY))
+    )
+    system(paste0(Fusion, "gridsurfacecreate.exe ", 
+                  mainDir, outDir, i,"_GridSurf.dtm ",
+                  "1 M M 1 32 0 0 ",mainDir, outDir,i, "_GroundPts.las"))
+    system(paste0(Fusion, "gridmetrics.exe ",mainDir,outDir,i,"_GridSurf.dtm ",0," " ,1," " ,mainDir, results,i, 
+                  "_vdr.csv ", mainDir,inDir,i))
+}}
+
+#######################################################################################
+
+DSM<-function(lasList){
+  for (i in lasList){
+    system(paste0(Fusion, "csv2grid.exe ", mainDir, results,i,"_vdr_all_returns_intensity_stats.csv ",38," ", 
+                  mainDir, results, i,"_dsm.asc"))
+    tempo=raster(paste0(mainDir,results,i, "_dsm.asc"))
+    projection(tempo) <- CRS("+init=epsg:25832")
+    writeRaster(tempo,paste0(mainDir,results,i, "_DSM."),format="GTiff" )
+}}
+
+#######################################################################################
+
+DGM<-function(lasList){
+  for (i in lasList){
+    system(paste0(Fusion, "csv2grid.exe ", mainDir, results,i,"_vdr_all_returns_intensity_stats.csv ",6," ", 
+                  mainDir, results, i,"_dgm.asc"))
+    tempo=raster(paste0(mainDir,results,i, "_dgm.asc"))
+    projection(tempo) <- CRS("+init=epsg:25832")
+    writeRaster(tempo,paste0(mainDir,results,i, "_DGM."),format="GTiff" )
+}}
+
+#######################################################################################
+
+CHM<-function(lasList){
+  for (i in lasList){
+    CH=(raster(paste0(mainDir,results,i,"_DSM.tif")))-
+      (raster(paste0(mainDir,results,i,"_DGM.tif")))
+    writeRaster(CH,paste0(mainDir,results,i,"_CH."),format="GTiff" )
+    
+    var_CH=focal(CH,w=matrix(1/81,nrow = 9,ncol = 9),na.rm=T,fun=var)
+    writeRaster(var_CH,paste0(mainDir,results,i,"_CH_var."),format="GTiff" )
+}}
+
+########################################################################################################
+
+GAP<-function(lasList){
+  for (i in lasList){
+    system(paste0(Fusion, "csv2grid.exe ", mainDir, results,i,"_vdr_all_returns_intensity_stats.csv ",26," ", 
+                  mainDir, results, i,"_gap.asc"))
+    tempo=raster(paste0(mainDir,results,i, "_gap.asc"))
+    projection(tempo) <- CRS("+init=epsg:25832")
+    writeRaster(tempo,paste0(mainDir,results,i, "_GAP."),format="GTiff" )
+    GaP=(raster(paste0(mainDir,results,i,"_GAP.tif")))
+    mean_GaP=focal(GaP,w=matrix(1/81,nrow = 9,ncol = 9),na.rm=T,fun=mean)
+    writeRaster(mean_GaP,paste0(mainDir,results,i, "_GaP_mean."),format="GTiff" )
+    var_GaP=focal(GaP,w=matrix(1/81,nrow = 9,ncol = 9),na.rm=T,fun=var)
+    writeRaster(var_GaP,paste0(mainDir,results,i, "_GaP_var."),format="GTiff" )
+}}
+
+#######################################################################################
+
+SLP<-function(lasList){
+  for (i in lasList){
+    SlP=(raster(paste0(mainDir,results,i,"_CH.tif")))
+    SlP_meaner=focal(SlP,w=matrix(1/625,nrow=25,ncol=25),na.rm=T,fun=mean)
+    SlP_CH=terrain(SlP_meaner,opt="slope",unit="degrees",neighbors = 8)
+    writeRaster(SlP_CH,paste0(mainDir,results,i, "_SlP."),format="GTiff" )
+}}
+
+```
