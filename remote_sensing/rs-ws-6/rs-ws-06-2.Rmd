@@ -1,0 +1,131 @@
+---
+title: "rs-ws-06-2"
+author: "CoWeber, aschupp, santowsa"
+date: "18 Januar 2018"
+output: html_document
+---
+
+# Accurary assessment land-cover classification 
+
+The execution of accurary assessment for first land-cover classification is divided into three parts:
+
+1. Preparation and create test and train samples outward the land-covers (Shapefile) in R
+
+2. Implementation of land-cover classification with train data and matrix output (QGIS / OTB)
+
+3. Calculation of Cohen's Kappa for each run (R)
+
+###1. Preparation and sample creation
+
+```{r, eval=FALSE}
+setwd("D:/mpg/daten/ln")
+library(caret)
+library(rgdal)
+library(raster)
+path <- "D:/mpg/daten/ln"
+path$samples <- "samples/"
+
+### Create random samples with data splitting function from caret-package
+
+train <- readOGR("merge_cal_shp.shp") #load training sites
+sep_train <- lapply(seq(length(train)), function(i) train[i,]) 
+#data splitting
+train_sample <- createDataPartition(train@data$LN_new, p = 0.80, list = F, times = 6)
+
+#create train and test data 
+samples <- lapply(seq(ncol(train_sample)), function(x){
+  
+  trainx <- lapply(train_sample[,x], function(i) rbind(sep_train[[i]]))
+  trainx <- do.call("rbind", trainx)
+  
+  test <- lapply(seq(length(train))[-train_sample[,x]], function(j) rbind(sep_train[[j]]))
+  test <- do.call("rbind", test)  
+  
+  return(list(train = trainx, test = test))
+  
+})
+
+#output new shp's in new output folder:
+
+dir.create(paste0(path$samples)) 
+
+for (a in seq(6)){
+  writeOGR(samples[[a]]$train, dsn = paste0(path$sample, "train_", as.character(a), ".shp"), driver = "ESRI Shapefile", layer = "train")
+  writeOGR(samples[[a]]$test, dsn = paste0(path$sample, "test_", as.character(a), ".shp"), driver = "ESRI Shapefile", layer = "test")
+}
+```
+
+Through step one we've got 6x train and test shapefile for the land-cover classificiation with OTB and the verification in step three.
+
+###2. Implementation in QGIS / OTB
+
+- "OTB TrainImageClassifier (rf)" and "OTB Image Classifier" in use.
+-  the matrices for step three are taken from the step otb trainimageclassifier (rf)
+
+--> If we look at the classifications outward only 80% of the initially train areas dataset compared to the 100% train area dataset it seems that the result of classification gets better with the smaller dataset. An Example for one classification based on one 80% train data below:
+
+```{r, echo=FALSE}
+library(sp)
+library(raster)
+
+raster <- raster("D:/mpg/skript/remote_sensing/rs_09_aktuell/classified_t_5.tif")
+plot(raster, col = terrain.colors(30), main = "Classified Train 5 (80%)")
+```
+
+
+###3. Kappa
+
+The comKappa function is taken from TNauss since package ctab wasn't as easy as excpected to understand and use surely in the script. The function can be seen below:
+
+```{r, eval=FALSE}
+compKappa <- function(ctable){
+  ctable <- ctable/sum(ctable)
+  categories <- nrow(ctable)
+  
+  # Fraction of agreement
+  pagrm <- 0
+  for(i in seq(categories)){
+    pagrm <- pagrm + ctable[i,i]
+  }
+  
+  # Expected fraction of agreement subject to the observed distribution
+  pexpct <- 0
+  for(i in seq(categories)){
+    pexpct <- pexpct + sum(ctable[i,]) * sum(ctable[,i])
+  }
+  
+  # Kappa index
+  kappa <- (pagrm - pexpct)/(1 - pexpct)
+  
+  return(kappa)
+}
+```
+
+Finally the calculation of Cohen's Kappa for each 80%-train dataset and the matrix data as basis:
+*** train_3 created like the other 5 test and train datasets returned an error in OTB and could not be used for Kappa calculation.
+```{r}
+setwd("D:/mpg/skript/remote_sensing/rs_09_aktuell/models/") #create WD
+x_files=list.files(pattern=".xml$", full.names=T)# create list with matrixfiles
+source("D:/mpg/skript/remote_sensing/rs-ws-06-2/kappa_func.R")
+
+#KAPPA function is the comKappa function written with a for loop and prints the results as part #of the function. 
+#The results are saved in a list.
+
+KAPPA=function(listfile){
+  d=data.frame()
+  for (i in listfile){
+    a=read.table(i,sep = ",")
+    c=compKappa(a)
+    c=round(c,digits=4)
+    print(paste0("the kappa value for ", substring(i,3,13), " is: ", c))
+    d=rbind(d,c)
+  }
+  return(d)
+}
+
+##################################################
+
+df=KAPPA(listfile = x_files)
+```
+
+The Kappa values show's only a sufficient accordance with values between 0.20-0.40. The Kappa value on the basis of 100% train area data shows the lowest values with 0.2407. A reduction of or selection of the train areas can improve the results a little.
