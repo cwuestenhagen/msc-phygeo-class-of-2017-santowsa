@@ -1,0 +1,148 @@
+---
+title: "gis-ws-09-1"
+author: "CoWeber, aschupp, santowsa"
+date: "23 Januar 2018"
+output: html_document
+---
+
+# Tree Segmentation with FUSION
+
+## Workflow: 
+
+1. Creating n-th percentile of las-point-cloud with Percentage function.
+    - Is controlled by the variables "d" (percentile) and "y" (colnumber in gridmetrics csv)
+    
+2. Creating CHM with CanopyModel.exe (FUSION)
+
+    Short description CanopyModel (FUSION):
+    
+    The CanopyModel application from FUSION creates a canopy surface model using LIDAR point cloud. Output is a       
+    surfacefile in DTM format. The tool uses the returns with the highest elevation to compute the surface model. The 
+    applied /ground switch produces a canopy height model (CHM) by subtraction the earth surface model from the return 
+    elevation. The switch /gridxy: is not kept variable because the setup of the variable did not work. The CHM is 
+    required as input for the FUSION TreeSeq tool (McGaughey 2006).
+    
+3. Creating tree segmentation with TreeSeg.exe (FUSION)
+
+    Short description TreeSeg (FUSION):
+    
+    The TreeSeg tool works with a watershed segmentation algorithm. Basis for the calculation of "basins" is a canopy   
+    height model (CHM) and not point data files. Additionally a  ht_hreshold, the minimum height of object segmentation, 
+    in our case a raster with the values of the 80. Percentile of CHM is entered. According to McGaughey (2006) "the 
+    TreeSeg tool does not necessarily produce outputs that represent individual tress". In stands with dens canopy 
+    density, the algorithm produces basins that represent more than one tree. Only under open stand conditions the basins     can represent individual trees. Beyond TreeSeg is sensitive to the resolution and amount of the input CHM. The tool      produces a metrics file in CSV-format, a shapefile containing high points and basin metrics, also another shapefile      containing basin (crown) outline and a ASCII raster map including basins.
+    
+### ETA: 11:39 min to calculate
+
+## Code: 
+
+```{r, eval=FALSE}
+mainDir <- "E:/Master/gis_09/"
+inDir <- "input/"
+outDir <- "output/"
+results<-"results/"
+Fusion<-"E:/gIs/FUSION/"
+library(sp)
+library(raster)
+library(rgdal)
+
+i1=list.files(paste0(mainDir,inDir),pattern=".las$", full.names=FALSE)
+d=80          #d=value equal to gridmetrics colnumber
+y=c(35)       #y=value in gridmetrics colnumber
+h=c(1,3,10)   #h=cellsize
+
+### 1. Percentage function ###
+Percentage=function(laslist,d,y){
+  for (i in laslist){
+    system(paste0(Fusion,"catalog.exe ",mainDir,inDir,i," ",
+                  mainDir,outDir,i,".html"))
+    extent<-read.csv(paste0(mainDir,outDir,i,".csv"))
+    system(paste0(paste0(Fusion,"clipdata.exe"," /class:2 ",
+                         mainDir,inDir,i," ",
+                         mainDir,outDir,i,"_groundpts.las "),
+                  paste(extent$MinX,extent$MinY,extent$MaxX,extent$MaxY)))
+    system(paste0(Fusion,"gridsurfacecreate.exe ", 
+                  mainDir,outDir,i,"_gridsurf.dtm "
+                  ,"1 M M 1 32 0 0 ",mainDir, outDir,i,"_groundpts.las"))
+    system(paste0(Fusion,"gridmetrics.exe ",mainDir,outDir,i,"_gridsurf.dtm ",0," " ,
+                  1," ",mainDir,results,i,"_stattab.csv ",mainDir,inDir,i))
+    for (j in y){
+      system(paste0(Fusion,"csv2grid.exe ",mainDir,results,i,
+                    "_stattab_all_returns_intensity_stats.csv ",j," ",mainDir,results,i,"_",d,"perc.asc"))
+      tempo=raster(paste0(mainDir,results,i,"_",d, "perc.asc"))
+      ex=extent(c(477248, 477468, 5631722,5631891))
+      ras_crop <- crop(tempo,ex)
+      projection(ras_crop) <- CRS("+init=epsg:25832")
+      writeRaster(ras_crop,paste0(mainDir,results,i,"_",d,"perc."),format="GTiff")
+    }
+  }
+}
+
+### 2. CHM function ###
+CanopyHeightModel=function(laslist,h){
+  for (i in laslist){
+    for (j in h){
+      system(paste0(Fusion, "CanopyModel.exe ","/ground:",mainDir,outDir,i,"_gridsurf.dtm ", #/ground ground value for CM
+                    "/gridxy:477248,5631722,477468,5631891 ", #/gridxy creates new extension values for the .DTM
+                    mainDir,results,i,"_",j,"m_CHM.dtm ",j," M M 1 32 0 0 ",mainDir,inDir,i)) #j(h)= cellsize value
+      system(paste0(Fusion,"DTM2ASCII.exe ",mainDir,results,i,"_",j,"m_CHM.dtm ",mainDir,results,i,"_",j,"m_CHM.asc"))
+      tempo=raster(paste0(mainDir,results,i,"_",j, "m_CHM.asc"))
+      projection(tempo) <- CRS("+init=epsg:25832")
+      writeRaster(tempo,paste0(mainDir,results,i,"_",j,"m_CHM."),format="GTiff")
+    }
+  }
+}
+
+### 3. TreeSeg function ###
+TreeSeg=function(laslist,h,d){
+  for (i in laslist){
+    for (j in h){
+      system(paste0(Fusion, "TreeSeg.exe ","/shape ", # watershed algorithm # /shape: output .shp basin maps
+                    mainDir,results,i,"_",j,"m_CHM.dtm ",mainDir,results,i,"_",d,"perc.tif ", # Input CHM .dtm, n-th percentile
+                    mainDir,results,i,"_",j, "_treeseg_",d,"perc.csv ")) # output .csv with basin data
+      tempo=raster(paste0(mainDir,results,i,"_",j,"_treeseg_",d,"perc", "_Basin_Map.asc")) 
+      projection(tempo) <- CRS("+init=epsg:25832")
+      writeRaster(tempo,paste0(mainDir,results,i,"_",j,"_",d,"_Basin_Map."),format="GTiff")
+      shapes <- readOGR(paste0(mainDir,results,i,"_",j,"_treeseg_",d,"perc","_Polygons.shp"))
+      projection(shapes) <- CRS("+init=epsg:25832")
+      writeOGR(shapes,dsn=paste0(mainDir,results,i,"_",j,"m_",d,"perc","_Polygons.", ".shp"),driver = "ESRI Shapefile",layer="treesize")
+      shapes <- readOGR(paste0(mainDir,results,i,"_",j,"_treeseg_",d,"perc","_HighPoints.shp"))
+      projection(shapes) <- CRS("+init=epsg:25832")
+      writeOGR(shapes,dsn=paste0(mainDir,results,i,"_",j,"m_",d,"perc","_HighPoints.shp", ".shp"),driver = "ESRI Shapefile",layer="treepoint")
+    }
+  }
+}
+Percentage(laslist = i1,d=d,y=y)
+CanopyHeightModel(laslist = i1,h=h)
+TreeSeg(laslist = i1,h=h,d=d)
+```
+
+## Results
+
+### Tree segmentation with 1x1m cellsize:
+
+![CHM 1x1](D:/bild/1_1.jpeg)
+
+![Basin model 1x1](D:/bild/1_2.jpeg)
+
+![TreeSeg model with height point 1x1](D:/bild/1_3.jpeg)
+
+
+
+### Tree segmentation with 3x3m cellsize
+
+![CHM 3x3](D:/bild/3_1.jpeg)
+
+![Basin model 3x3](D:/bild/3_2.jpeg)
+
+![TreeSeg model with height point 3x3](D:/bild/3_3.jpeg)
+
+
+
+### Comparison with 10x10m TreeSeg model with height points:
+
+![TreeSeg model with height point 10x10](D:/bild/10.jpeg)
+
+## Conclusion
+
+The first TreeSeg model with 1x1m has the best basin model in exchange with the CHM. The problem of TreeSeg.exe with dens canopy covers becomes clear here. The polygons are to small to represent the real crowns. The second model with 3x3m has average basin model and polygons, therefore should be considered as best to use. It becomes clear that the tool is very sensitve to the resolution of input data. In camparison of both models the 10x10m model shows very good polygons, but resolution (basin model) is to low, to detect single trees. 
