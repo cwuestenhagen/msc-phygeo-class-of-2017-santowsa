@@ -1,0 +1,90 @@
+---
+title: "rs-ws-08-1"
+author: "santowsa, CoWeber, aschupp"
+date: "25 Januar 2018"
+output: html_document
+---
+
+### classification with OTB in R
+
+```{r, eval=F}
+maindir="E:/Master/rs-ws-08-1/"
+indir="input/"
+outdir="output/"
+results="results/"
+otb="E:/Master/OTB-6.2/bin/"
+#install.packages("devtools") #only on first time use
+#library(devtools)
+#devtools::install_github("environmentalinformatics-marburg/satelliteTools") #only first time use
+library(satelliteTools)
+
+#########################################################################################################
+
+#hard way to use otb and system calls:
+#tiff=list.files(paste0(maindir,indir),pattern=".tif$",full.names=F)
+#must use values (default values)
+#i=c(5)      #spatial range
+#j=c(15)     #spectral range
+#k=c(0.1)    #threshold (default)
+#l=c(100)    #max. iterations (default)
+#
+#mss=function(h,i,j,k,l,x){
+#  for (x in tiff){
+#    system(paste0(paste0(otb,"otbcli_MeanShiftSmoothing.bat "),"-in ",paste0(maindir,indir,x)," -fout ",
+#           paste0(maindir,results,x,"_smoo.tif")," -foutpos ",paste0(maindir,results,x,"_pos.tif"),
+#          " -spatialr ",i," -ranger ",j," -thres ",k," -maxiter ",l))
+#    }
+#}
+#mss(h=tiff,i=i,j=j,k=k,l=l)
+
+########################################################################################################
+rm(list=ls()) #clear workspace from the hard way
+maindir="E:/Master/rs-ws-08-1/"
+indir="input/"
+outdir="output/"
+results="results/"
+library(satelliteTools)
+otbPath=("E:/Master/OTB-6.2/bin/")
+
+#quick way with sattelitetools
+
+otbcli_MeanShiftSmoothing(x = paste0(maindir,indir,"geonode_ortho_muf_rgb_idx_pca_scaled.tif"),
+                          return_raster = FALSE,
+                          spatialr = 5,
+                          ranger = 15,
+                          outfile_filter = paste0(maindir,outdir,"smooth_filter.tif"),
+                          outfile_spatial = paste0(maindir,outdir,"smooth_spatial.tif")
+)
+
+for (i in c(15,30)){
+  otbcli_ExactLargeScaleMeanShiftSegmentation(x = paste0(maindir,outdir,"smooth_filter.tif"),
+                                              inpos = paste0(maindir,outdir,"smooth_spatial.tif"),
+                                              out = paste0(maindir,outdir,"segmentation_", i, ".tif"),
+                                              tmpdir=paste0(maindir,outdir),
+                                              spatialr = 1, 
+                                              ranger = i,
+                                              return_raster = FALSE
+  )
+  for (j in c(40,70)){
+    otbcli_LSMSSmallRegionsMerging(x = paste0(maindir,outdir, "smooth_filter.tif"), 
+                                   inseg =  paste0(maindir,outdir,"segmentation_", i, ".tif"),
+                                   out = paste0(maindir,outdir,"regMerging_", i, "_", j, ".tif"), 
+                                   minsize = j,
+                                   return_raster = FALSE
+    )
+    otbcli_LSMSVectorization(x = paste0(maindir,indir,"geonode_ortho_muf_rgb_idx_pca_scaled.tif"), 
+                             inseg = paste0(maindir,outdir, "regMerging_", i, "_", j, ".tif"), 
+                             out = paste0(maindir,results, "vectorization_", i, "_", j,".shp")
+    )
+    
+  }
+}
+
+```
+
+## Results
+
+We suggest to use either a spectral range from 15 or 30 depending on the task the data is used for and minimum size of 70.
+The differences in the shapes created are marginal but smaller cells will be split into a own cell (range 15) while they would be absorbed into the dominant one (range 30).
+
+A good setting for our task would be a range of 15 and min. size of 70.
