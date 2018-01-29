@@ -1,0 +1,124 @@
+---
+title: "da-ws-10-1"
+author: "CoWeber, aschupp, santowsa"
+date: "28 Januar 2018"
+output: html_document
+---
+
+# Precipitation forecast (DWD station Coelbe)
+
+### Workflow for precipiation forecast
+
+- (1) Data preparation
+- (2) Calculate ARIMA model with different parameter combination
+- (3) Best model by RMSE and auto-arima
+- (4) Plot results 
+
+
+## (1) Data preparation
+```{r}
+#install.packages("forecast")
+library(forecast)
+mainDir <- "D:/mpg/daten/dwd_coelbe/"
+results <- "results"
+### read dwd data:
+dwd <- read.table(paste0(mainDir,"produkt_synop_Terminwerte_20060701_20151231_03164.txt"),
+                  header = T, sep = ";")
+#head(dwd)
+### create new colum with year and month info from MESS_DATUM:
+dwd$AGG_M <- substr(dwd$MESS_DATUM, 1, 6)
+#head(dwd$AGG_M)
+### aggregate the monthly precipitation:
+df <- aggregate(dwd$NIEDERSCHLAGSHOEHE, by=list(dwd$AGG_M), FUN= sum)
+colnames(df) <- c("Date", "NSH") #new colnames
+head(df)
+
+### Splitting data into train (07/2006-12/2013) and test (01/2014-12/2015)
+time <- which(df$Date == 201312)
+train <- df[1:time,] 
+test <- df[(time+1):(nrow(df)),] 
+
+### parameter combination for ARIMA: 
+
+para <- expand.grid(p=seq(0,5), d=seq(0,2), q=seq(0,5),
+                   ps=seq(0,2), ds=seq(0,2), qs=seq(0,2))
+#(para)
+```
+
+## (2) Calculate ARIMA model with different parameter combination
+
+```{r, warning=FALSE}
+### ARIMA model with all parameters:
+result <- lapply(seq(nrow(para)), function(x){
+  mod <- arima(train$NSH, 
+               order = c(para$p[x], para$d[x], para$q[x]),
+               seasonal = list(order = c(para$ps[x], para$ds[x], para$qs[x])),
+               method = "ML")
+  pre <- predict(mod, n.ahead = 24)
+  
+  return(data.frame(p = para$p[x], d = para$d[x], q = para$q[x],
+                    ps = para$ps[x], ds = para$ds[x], qs = para$qs[x],
+                    rmse = sqrt(mean((pre$pred - test$NSH)^2))))
+})
+
+### save the ARIMA-results:
+
+saveRDS(result, file = paste0(mainDir, "arima_nsh_model.RDS"))
+``` 
+
+## (3) Best model by RMSE and auto-arima
+
+```{r}
+
+### get results just for .RMD output
+result <- readRDS(paste0(mainDir,"arima_nsh_model.RDS"))
+result <- do.call("rbind", result)
+
+### best model with smallest rmse:
+best <- result[min(result$rmse),]
+### get the model with the best parameters:
+best_model <- arima(train$NSH,
+                  order = c(best$p,best$d,best$q),
+                  seasonal = list(order = c(best$ps, best$ds, best$qs)),
+                  method = "ML")
+best_pred <- predict(best_model, n.ahead = 24)
+
+### using auto arima function for comparison optimal model and corresponding values:
+ts_prec <- ts(train$NSH, start = c(2006, 7), end = c(2013, 12), frequency = 12)
+auto_mod <- forecast::auto.arima(ts_prec, max.p = 5, max.d = 2, max.q = 5, 
+                                 stationary = TRUE, seasonal = TRUE)
+
+### calculate statistics for best mode:
+best$AIC <- best_model$aic
+stats <- data.frame(p = 2, d = 0, q = 2, ps = NA, ds = NA, qs = NA, 
+                         rmse = summary(auto_mod)[2], AIC = auto_mod$aic)
+
+### print summarized statistics:
+mod_stats <- rbind(best, stats)
+rownames(mod_stats) <- c("ARIMA", "auto_ARIMA")
+print(mod_stats)
+```
+
+## (4) Plot results
+
+```{r}
+prec_ts <- ts(df$NSH, start = c(2006, 7), end = c(2015, 12), frequency = 12)
+pred_ts <- ts(best_pred$pred, start = c(2014, 1), end = c(2015, 12), frequency = 12)
+pred_se <- ts(best_pred$se, start = c(2014, 1), end = c(2015, 12), frequency = 12)
+plot(prec_ts, main = "Arima (3,1,1)(0,0,0)", ylab = "NSH", xlab="Years")
+lines(pred_ts, col="green")
+lines(pred_ts+pred_se, col ="blue")
+lines(pred_ts-pred_se, col ="blue")
+legend("topleft",legend=c("Forecast Arima 3,1,1", "Forcast Arima 0,0,0"), col = c("green","blue"), 
+        lty= 1:1, cex=0.8)
+```
+
+```{r}
+plot(forecast(auto_mod), main = "Auto Arima (2,0,2)", ylab = "NSH", xlab="Years")
+lines(prec_ts, col="black", lty= 2)
+legend("topleft", legend=c("NHS-values", "Auto Arima"), col = c("black", "blue"), lty=2:1, cex=0.8)
+```
+
+### One-sentence-statement about differences:
+
+- There are no significant differences at RMSE and AIC of the two models even if the plot shows a better adapted auto-ARIMA model. 
