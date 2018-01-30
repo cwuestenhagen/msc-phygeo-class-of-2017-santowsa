@@ -1,0 +1,112 @@
+---
+title: "gis-ws-10-1"
+author: "CoWeber, aschupp, santowsa"
+date: "30 Januar 2018"
+output: html_document
+---
+
+# Tuning Tree segmentation with FUSION 
+
+The Fusion TreeSeg system function  allowed only a few parameter settings for the watershed segmentation algorithm. If we want to tune the algorithm, we have to change the input data to improve the model: First we changed the dtm cell-size to 1,2,3,4,5 and 10 meters.We used a focal window (3x3m) to filer the CHM and heightbreak (n-th percentile tif). We tried differend percentiles as the min. heightbreaks for the TreeSeg function. 
+
+### Workflow:
+
+- 1. Iterate over variable a different cell-sizes for TreeSeg
+- 2. As shown in gis-ws-09-1 create CHM, Heightbreak and blend it to basin maps and .shp-files
+
+### Code (TreeSeg-function)
+
+```{r, eval=FALSE}
+### data input:
+maindir="E:/gis-ws-10-1/"
+indir="input/"
+outdir="output/"
+results="results/"
+Fusion<-"E:/gIs/FUSION/"
+library(sp)
+library(raster)
+library(rgdal)
+
+### variables:
+a=c(1,2,3,4,5,10) # extent of dtm-cell-size
+c=c(35, 36, 37) # colname in csv2frid --> n-th percentil (37 = 95th percentile)
+laslist=list.files(paste0(maindir,indir),pattern=".las$", full.names=FALSE)
+#if extension is known use switch "/gridxy" in CanopyModel.exe
+
+### TreeSeg-function:
+TreeSeg=function(laslist,a,c){
+  for (i in laslist){
+    system(paste0(Fusion,"catalog.exe ",maindir,indir,i," ",
+                  maindir,outdir,i,".html"))
+    extent<-read.csv(paste0(maindir,outdir,i,".csv"))
+    system(paste0(paste0(Fusion,"clipdata.exe"," /class:2 ",
+                         maindir,indir,i," ",
+                         maindir,outdir,i,"_groundpts.las "),
+                  paste(extent$MinX,extent$MinY,extent$MaxX,extent$MaxY)))
+    for (j in a){
+      system(paste0(Fusion,"gridsurfacecreate.exe ", 
+                    maindir,outdir,i,"_",j,"m_gridsurf.dtm "
+                    ,j," M M 1 32 0 0 ",maindir, outdir,i,"_groundpts.las"))
+      system(paste0(Fusion, "CanopyModel.exe ","/ground:",maindir,outdir,i,"_",j,"m_gridsurf.dtm
+                    ",
+                    "/smooth:3 ","/peaks ", 
+                    ### smooth: mean filter for CanopyModel with 3x3 extent and peaks: show                         ### local maxima in canopy height model
+                    maindir,results,i,"_",j,"m_CHM.dtm ",j," M M 1 32 0 0 ",maindir,indir,i))
+      system(paste0(Fusion,"DTM2ASCII.exe ",maindir,results,i,"_",j,"m_CHM.dtm 
+                    ",maindir,results,i,"_",
+                    j,"m_CHM.asc"))
+      tempo=raster(paste0(maindir,results,i,"_",j, "m_CHM.asc"))
+      projection(tempo) <- CRS("+init=epsg:25832")
+      writeRaster(tempo,paste0(maindir,results,i,"_",j,"m_CHM."),format="GTiff")
+      system(paste0(Fusion,"gridmetrics.exe ",maindir,outdir,i,"_",j,"m_gridsurf.dtm ",0," " ,
+                    1," ",maindir,results,i,"_",j,"m_stattab.csv ",maindir,indir,i))
+      for (l in c){
+        system(paste0(Fusion,"csv2grid.exe ",maindir,results,i,"_",j,
+                      "m_stattab_all_returns_intensity_stats.csv ",l,"   
+                      ",maindir,results,i,"_",j,"m_",l,
+                      "perc.asc"))
+        tempo=raster(paste0(maindir,results,i,"_",j,"m_",l, "perc.asc"))
+        #ex=extent(c(477248, 477468, 5631722,5631891))
+        #tempo <- crop(tempo,ex)
+        projection(tempo) <- CRS("+init=epsg:25832")
+        tempo=focal(tempo,w=matrix(1,3,3),fun=mean)
+        writeRaster(tempo,paste0(maindir,results,i,"_",j,"m_",l,"perc."),format="GTiff")
+        system(paste0(Fusion, "TreeSeg.exe ","/shape ",
+                      maindir,results,i,"_",j,"m_CHM.dtm 
+                      ",maindir,results,i,"_",j,"m_",l,"perc.tif ",
+                      maindir,results,i,"_",j, "_treeseg_",l,"perc.csv "))
+        tempo=raster(paste0(maindir,results,i,"_",j,"_treeseg_",l,"perc", "_Basin_Map.asc"))
+        projection(tempo) <- CRS("+init=epsg:25832")
+        writeRaster(tempo,paste0(maindir,results,i,"_",j,"_",l,"_Basin_Map."),format="GTiff")
+        shapes <- readOGR(paste0(maindir,results,i,"_",j,"_treeseg_",l,"perc","_Polygons.shp"))
+        projection(shapes) <- CRS("+init=epsg:25832")
+        writeOGR(shapes,dsn=paste0(maindir,results,i,"_",j,"m_",l,"perc","_Polygons_class", 
+                                   ".shp"),
+                 driver = "ESRI Shapefile",layer="treesize")
+        shapes <- readOGR(paste0(maindir,results,i,"_",j,"_treeseg_",l,"perc","_HighPoints.shp")
+                          )
+        projection(shapes) <- CRS("+init=epsg:25832")
+        writeOGR(shapes,dsn=paste0(maindir,results,i,"_",j,"m_",l,"perc","_HighPoints_class", 
+                                   ".shp"),
+                 driver = "ESRI Shapefile",layer="treepoint")
+      }
+    }
+  }
+}
+
+TreeSeg(laslist = i1,a=a,c=c)
+```
+
+### Results: 
+
+In the area mapped by Jannis our result with 2x2 cell-size (dtm) and heigthbreak (95th percentile) shows the following 26 trees:
+
+![TreeSeg (2x2_95thpercentile)](F:/result_tree_seg.png)
+
+
+For comparison the 1x1 cell-size (dtm) and heightbreak (95th percentile shows 111 trees):
+
+![TreeSeg (1x1_95thpercentile)](F:/result_1m.png)
+
+
+By the fact that the mapped area should have between 30 and 60 trees, the 2x2m cell-size TreeSeg shows a nearly comparabel result. 
